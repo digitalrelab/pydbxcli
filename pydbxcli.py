@@ -268,7 +268,7 @@ def get_files_in_queue(queue):
         if not file:
             return result;
 
-        result.entries.append(file.decode())
+        result.entries.append(file.decode('utf-8'))
 
 def get_queue(name):
     return FifoDiskQueue(name)
