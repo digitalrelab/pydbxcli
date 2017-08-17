@@ -65,6 +65,18 @@ def main():
     parser_ls.set_defaults(func=ls)
 
     # create the parser for the "get" command
+    parser_ls = subparser.add_parser(name='get-file',
+                                     help='download file from Dropbox to local folder')
+    parser_ls.add_argument('dest_path',
+                           type=str,
+                           default='.',
+                           help='which path on the local machine to store downloads')
+    parser_ls.add_argument('--pullFilesFromQueue',
+                         type=str,
+                         default=None,
+                         help='pull files from the given queue name')
+    parser_ls.set_defaults(func=getFile)
+    # create the parser for the "get" command
     parser_ls = subparser.add_parser(name='get',
                                      help='download files from Dropbox to local folder')
     parser_ls.add_argument('-r',
@@ -240,7 +252,7 @@ def get(args):
 
             # Parse JSON into an object with attributes corresponding to dict keys.
             #https://stackoverflow.com/questions/6578986/how-to-convert-json-data-into-a-python-object
-            parsed = json.loads(entry, object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
+            parsed = json.loads(entry.decode, object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
             copy_dropbox_file(args, parsed, dbx)
             queue.close()
     else:
@@ -255,6 +267,66 @@ def get(args):
                 files = dbx.files_list_folder_continue(files.cursor)
             else:
                 break
+
+
+def getFile(args):
+    dbx = connect_to_dropbox(args)
+
+    while True:
+        queue = get_queue(args.pullFilesFromQueue)
+        next = queue.pop()
+
+        if not next:
+            break
+
+        parsed = json.loads(next, object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
+        entry = dbx.files_get_metadata(getattr(parsed, 'path_display'));
+
+        src = getattr(entry, 'path_display')
+        args.src_path = src
+        args.excludePaths = []
+        copy_dropbox_file(args, entry, dbx)
+
+        # dest = args.dest_path + src
+        #
+        # # Parse JSON into an object with attributes corresponding to dict keys.
+        # #https://stackoverflow.com/questions/6578986/how-to-convert-json-data-into-a-python-object
+        #
+        # if not getattr(entry, 'size', None):
+        #     print('empty file or directory skipping ' + getattr(entry, 'path_display'))
+        #     queue.close()
+        #     continue
+        #
+        # local_dir = os.path.dirname(args.dest_path + entry.path_display)
+        # try:
+        #     if not os.path.exists(local_dir):
+        #         print('Creating directory {}'.format(local_dir))
+        #         os.makedirs(local_dir)
+        # except Exception as err:
+        #     print(err)
+        #     sys.exit(1)
+        #
+        # try:
+        #     dbx.files_download_to_file(path=src, download_path=dest)
+        # except Exception as err:
+        #     print(err)
+        #     sys.exit(1)
+        # # set atime/mtime for file
+        # try:
+        #     modified = entry.server_modified
+        #     cModified = entry.client_modified
+        #
+        #     if type(entry.server_modified) is str:
+        #         modified = datetime.strptime(entry.server_modified, '%Y-%m-%dT%H:%M:%S')
+        #     if type(entry.client_modified) is str:
+        #         cModified = datetime.strptime(entry.client_modified, '%Y-%m-%dT%H:%M:%S')
+        #
+        #     os.utime(path=dest, times=(modified.timestamp(), cModified.timestamp()))
+        # except Exception as err:
+        #     print(err)
+        #     sys.exit(1)
+
+        queue.close()
 
 def get_files_in_queue(queue):
     result = FakeFileList()
