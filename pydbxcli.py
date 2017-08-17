@@ -252,7 +252,7 @@ def get(args):
 
             # Parse JSON into an object with attributes corresponding to dict keys.
             #https://stackoverflow.com/questions/6578986/how-to-convert-json-data-into-a-python-object
-            parsed = json.loads(entry.decode, object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
+            parsed = json.loads(entry.decode(), object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
             copy_dropbox_file(args, parsed, dbx)
             queue.close()
     else:
@@ -279,7 +279,7 @@ def getFile(args):
         if not next:
             break
 
-        parsed = json.loads(next, object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
+        parsed = json.loads(next.decode(), object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
         entry = dbx.files_get_metadata(getattr(parsed, 'path_display'));
 
         src = getattr(entry, 'path_display')
