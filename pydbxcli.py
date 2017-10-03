@@ -6,6 +6,8 @@ import argparse
 import signal
 import dropbox
 import json
+import csv
+import time
 from queuelib import FifoDiskQueue
 from collections import namedtuple
 from datetime import datetime, date
@@ -95,6 +97,10 @@ def main():
                           type=str,
                           default=None,
                           help='pull files from the given queue name')
+    parser_ls.add_argument('--csv',
+                          type=str,
+                          default=None,
+                          help='pull files csv file')
     parser_ls.add_argument('--excludePaths',
                            nargs='*',
                            default=[],
@@ -255,8 +261,14 @@ def get(args):
             parsed = json.loads(entry.decode(), object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
             copy_dropbox_file(args, parsed, dbx)
             queue.close()
+    elif args.csv:
+        with open(args.csv) as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                entry = dbx.files_get_metadata('/Team Folder/' + row['name']);
+                time.sleep(.25)
+                copy_dropbox_file(args, entry, dbx)
     else:
-        dbx = connect_to_dropbox(args)
         while True:
             files = files = dbx.files_list_folder(path=args.src_path, recursive=args.r)
 
@@ -286,7 +298,7 @@ def getFile(args):
         args.src_path = src
         args.excludePaths = []
         copy_dropbox_file(args, entry, dbx)
-
+        queue.close()
         # dest = args.dest_path + src
         #
         # # Parse JSON into an object with attributes corresponding to dict keys.
@@ -325,8 +337,6 @@ def getFile(args):
         # except Exception as err:
         #     print(err)
         #     sys.exit(1)
-
-        queue.close()
 
 def get_files_in_queue(queue):
     result = FakeFileList()
